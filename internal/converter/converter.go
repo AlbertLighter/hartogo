@@ -63,6 +63,7 @@ func ReadHARFromFile(filePath string) (*HAR, error) {
 }
 
 // GenerateCode generates Go code from a TemplateData object.
+// GenerateCode generates Go code from a TemplateData object.
 func GenerateCode(data TemplateData) (string, error) {
 	parsedURL, err := url.Parse(data.Request.URL)
 	if err != nil {
@@ -76,12 +77,32 @@ func GenerateCode(data TemplateData) (string, error) {
 	// Generate request struct if applicable
 	if strings.Contains(data.Request.PostData.MimeType, "application/json") && data.Request.PostData.Text != "" {
 		structName := data.FunctionName + "Request"
-		structDef, err := GenerateStruct(data.Request.PostData.Text, structName)
-		if err == nil {
-			finalData.RequestStructName = structName
-			finalData.RequestStructDef = structDef
-		} else {
-			fmt.Printf("Could not generate request struct for %s: %v\n", data.FunctionName, err)
+		var structDef string
+
+		// The text from HAR postData can be a string that itself contains escaped JSON.
+		// We try to unescape it first.
+		var unescapedText string
+		if json.Unmarshal([]byte(`"`+data.Request.PostData.Text+`"`), &unescapedText) == nil {
+			// If unescaping succeeds, try generating the struct from the unescaped text.
+			var err error
+			structDef, err = GenerateStruct(unescapedText, structName)
+			if err == nil {
+				// Success! Update PostData.Text to the unescaped version for the template.
+				data.Request.PostData.Text = unescapedText
+				finalData.RequestStructName = structName
+				finalData.RequestStructDef = structDef
+			}
+		}
+
+		// If struct generation hasn't succeeded yet, try with the original text.
+		if finalData.RequestStructName == "" {
+			structDef, err := GenerateStruct(data.Request.PostData.Text, structName)
+			if err == nil {
+				finalData.RequestStructName = structName
+				finalData.RequestStructDef = structDef
+			} else {
+				fmt.Printf("Could not generate request struct for %s: %v\n", data.FunctionName, err)
+			}
 		}
 	}
 
@@ -124,8 +145,13 @@ func GenerateCode(data TemplateData) (string, error) {
 
 	formattedCode, err := format.Source(buf.Bytes())
 	if err != nil {
+		// If formatting fails, print the unformatted code for debugging.
+		fmt.Println("--BEGIN UNFORMATTED CODE--")
+		fmt.Println(buf.String())
+		fmt.Println("--END UNFORMATTED CODE--")
 		return "", fmt.Errorf("failed to format generated code: %w", err)
 	}
 
 	return string(formattedCode), nil
 }
+

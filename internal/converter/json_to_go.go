@@ -64,7 +64,7 @@ func generateType(data interface{}, indentLevel int) (string, error) {
 	case bool:
 		return "bool", nil
 	case nil:
-		return "interface{}(nil)", nil
+		return "interface{}", nil
 	default:
 		return "", fmt.Errorf("unsupported type: %T", v)
 	}
