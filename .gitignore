@@ -1,0 +1,18 @@
+# Go binaries
+*.exe
+
+# Generated Go files directory
+/generated_requests/
+
+# Previously generated files in root
+/generated.go
+/GET_httpbin.org_get.go
+/GET_creator.xiaohongshu.com_api_media_v1_upload_creator_permit.go
+/POST_edith.xiaohongshu.com_web_api_sns_v2_note.go
+
+# IDE configuration
+/.vscode/
+
+# OS-generated files
+.DS_Store
+Thumbs.db

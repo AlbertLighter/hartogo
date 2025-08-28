@@ -1,0 +1,82 @@
+package requests
+
+import (
+	"encoding/json"
+	"log"
+
+	"resty.dev/v3"
+)
+
+{{if .RequestStructDef -}}
+// Structs for the request body of {{.FunctionName}}
+{{.RequestStructDef}}
+{{- end}}
+
+{{if .ResponseStructDef -}}
+// Structs for the response body of {{.FunctionName}}
+{{.ResponseStructDef}}
+{{- end}}
+
+// {{.FunctionName}} executes the request based on the HAR entry.
+func {{.FunctionName}}() (*resty.Response, error) {
+	// Create a Resty Client
+	client := resty.New()
+
+	// Create a request
+	req := client.R()
+
+	{{- if .ResponseStructName}}
+	// Automatically unmarshal the response into the corresponding struct
+	req.SetResult(&{{.ResponseStructName}}{})
+	{{- end}}
+
+	{{- if .Headers}}
+	req.SetHeaders(map[string]string{
+		{{- range .Headers}}
+		"{{.Name}}": "{{.Value}}",
+		{{- end}}
+	})
+	{{- end}}
+
+	{{- if .QueryString}}
+	req.SetQueryParams(map[string]string{
+		{{- range .QueryString}}
+		"{{.Name}}": "{{.Value}}",
+		{{- end}}
+	})
+	{{- end}}
+
+	{{- if .RequestStructName}}
+	var requestBody {{.RequestStructName}}
+	// Note: The PostData.Text is the escaped version of the JSON.
+	if err := json.Unmarshal([]byte("{{.PostData.Text}}"), &requestBody); err != nil {
+		log.Printf("Error unmarshalling request body for {{.FunctionName}}: %v", err)
+		return nil, err
+	}
+	req.SetBody(requestBody)
+	{{- else if .PostData.Text}}
+	req.SetBody("{{.PostData.Text}}")
+	{{- else if .PostData.Params}}
+	req.SetFormData(map[string]string{
+		{{- range .PostData.Params}}
+		"{{.Name}}": "{{.Value}}",
+		{{- end}}
+	})
+	{{- end}}
+
+	resp, err := req.Execute("{{.Method}}", "{{.URL}}")
+
+	if err != nil {
+		log.Printf("Error executing request for {{.FunctionName}}: %v", err)
+		return nil, err
+	}
+
+	{{- if .ResponseStructName}}
+	if resp.IsSuccess() {
+		result := resp.Result().(*{{.ResponseStructName}})
+		log.Printf("Unmarshalled response: %+v", result)
+	}
+	{{- end}}
+
+	return resp, nil
+}
