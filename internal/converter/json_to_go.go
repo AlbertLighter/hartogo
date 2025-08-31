@@ -96,7 +96,6 @@ func GenerateStruct(jsonString, topLevelStructName string) (string, []string, er
 	return string(formatted), sortedImports, nil
 }
 
-
 func (g *generator) generateType(data interface{}, nameHint string, indentLevel int) (string, error) {
 	switch v := data.(type) {
 	case map[string]interface{}:
@@ -194,6 +193,15 @@ func (g *generator) addCustomUnmarshalerStruct(data interface{}, nameHint string
 	sb.WriteString(fmt.Sprintf("\t\treturn json.Unmarshal([]byte(s), &%s)\n", receiver))
 	sb.WriteString("\t}\n")
 	sb.WriteString(fmt.Sprintf("\treturn json.Unmarshal(data, &%s)\n", receiver))
+	sb.WriteString("}\n\n")
+
+	sb.WriteString(fmt.Sprintf("func (%s %s) MarshalJSON() ([]byte, error) {\n", receiver, structName))
+	sb.WriteString(fmt.Sprintf("\ttype alias %s\n", structName))
+	sb.WriteString(fmt.Sprintf("\tdata, err := json.Marshal(alias(%s))\n", receiver))
+	sb.WriteString("\tif err != nil {\n")
+	sb.WriteString("\t	return nil, err\n")
+	sb.WriteString("\t}\n")
+	sb.WriteString("\treturn json.Marshal(string(data))\n")
 	sb.WriteString("}\n")
 
 	g.structs[structName] = sb.String()
