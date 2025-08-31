@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode"
 
 	"github.com/AlbertLighter/hartogo/internal/converter"
 )
@@ -36,6 +37,51 @@ func main() {
 		log.Fatalf("Failed to create output directory: %v", err)
 	}
 
+	// Check if the input file is a JSON file
+	if strings.HasSuffix(strings.ToLower(*inputFile), ".json") {
+		// Handle JSON file directly
+		log.Printf("Input is a JSON file: %s. Generating Go struct...", *inputFile)
+
+		jsonContent, err := os.ReadFile(*inputFile)
+		if err != nil {
+			log.Fatalf("Failed to read JSON file: %v", err)
+		}
+
+		base := filepath.Base(*inputFile)
+		ext := filepath.Ext(base)
+		structName := converter.ToCamelCase(strings.TrimSuffix(base, ext))
+		if len(structName) > 0 && unicode.IsDigit(rune(structName[0])) {
+			structName = "Json" + structName
+		}
+
+		generatedCode, imports, err := converter.GenerateStruct(string(jsonContent), structName)
+		if err != nil {
+			log.Fatalf("Failed to generate struct from JSON: %v", err)
+		}
+
+		// Prepare the full Go file content
+		var sb strings.Builder
+		sb.WriteString("package requests\n\n")
+		if len(imports) > 0 {
+			sb.WriteString("import (\n")
+			for _, imp := range imports {
+				sb.WriteString(fmt.Sprintf("\t%s\n", imp))
+			}
+			sb.WriteString(")\n\n")
+		}
+		sb.WriteString(generatedCode)
+
+		outputFilename := strings.TrimSuffix(base, ext) + ".go"
+		outputPath := filepath.Join(finalOutputDir, outputFilename)
+
+		// Write the generated code to the output file
+		if err := os.WriteFile(outputPath, []byte(sb.String()), 0644); err != nil {
+			log.Fatalf("Failed to write Go struct file: %v", err)
+		}
+
+		log.Printf("Successfully created Go struct file: %s", outputPath)
+		return // Exit after handling the JSON file
+	}
 	// Read and parse the HAR file
 	httpArchive, err := converter.ReadHARFromFile(*inputFile)
 	if err != nil {
