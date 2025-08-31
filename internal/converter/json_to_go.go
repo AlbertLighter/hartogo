@@ -188,9 +188,10 @@ func (g *generator) addCustomUnmarshalerStruct(data interface{}, nameHint string
 
 	receiver := strings.ToLower(string(structName[0]))
 	sb.WriteString(fmt.Sprintf("func (%s *%s) UnmarshalJSON(data []byte) error {\n", receiver, structName))
+	sb.WriteString(fmt.Sprintf("\ttype alias %s\n", structName))
 	sb.WriteString("\tvar s string\n")
 	sb.WriteString("\tif err := json.Unmarshal(data, &s); err == nil {\n")
-	sb.WriteString(fmt.Sprintf("\t\treturn json.Unmarshal([]byte(s), &%s)\n", receiver))
+	sb.WriteString(fmt.Sprintf("\t\treturn json.Unmarshal([]byte(s), (*alias)(%s))\n", receiver))
 	sb.WriteString("\t}\n")
 	sb.WriteString(fmt.Sprintf("\treturn json.Unmarshal(data, &%s)\n", receiver))
 	sb.WriteString("}\n\n")
