@@ -26,6 +26,7 @@ type TemplateData struct {
 	RequestStructDef   string
 	ResponseStructName string
 	ResponseStructDef  string
+	Imports            []string
 }
 
 // UTF8BOM defines the byte order mark for UTF-8
@@ -74,32 +75,44 @@ func GenerateCode(data TemplateData) (string, error) {
 	finalData := data
 	finalData.Request.URL = baseURL
 
+	// Set up a map to collect unique imports
+	imports := map[string]struct{}{
+		`"log"`:          {}, 
+		`"resty.dev/v3"`: {}, 
+	}
+
 	// Generate request struct if applicable
 	if strings.Contains(data.Request.PostData.MimeType, "application/json") && data.Request.PostData.Text != "" {
 		structName := data.FunctionName + "Request"
 		var structDef string
+		var requiredImports []string
 
 		// The text from HAR postData can be a string that itself contains escaped JSON.
 		// We try to unescape it first.
 		var unescapedText string
 		if json.Unmarshal([]byte(`"`+data.Request.PostData.Text+`"`), &unescapedText) == nil {
 			// If unescaping succeeds, try generating the struct from the unescaped text.
-			var err error
-			structDef, err = GenerateStruct(unescapedText, structName)
+			structDef, requiredImports, err = GenerateStruct(unescapedText, structName)
 			if err == nil {
 				// Success! Update PostData.Text to the unescaped version for the template.
 				data.Request.PostData.Text = unescapedText
 				finalData.RequestStructName = structName
 				finalData.RequestStructDef = structDef
+				for _, imp := range requiredImports {
+					imports[imp] = struct{}{}
+				}
 			}
 		}
 
 		// If struct generation hasn't succeeded yet, try with the original text.
 		if finalData.RequestStructName == "" {
-			structDef, err := GenerateStruct(data.Request.PostData.Text, structName)
+			structDef, requiredImports, err := GenerateStruct(data.Request.PostData.Text, structName)
 			if err == nil {
 				finalData.RequestStructName = structName
 				finalData.RequestStructDef = structDef
+				for _, imp := range requiredImports {
+					imports[imp] = struct{}{}
+				}
 			} else {
 				fmt.Printf("Could not generate request struct for %s: %v\n", data.FunctionName, err)
 			}
@@ -109,14 +122,24 @@ func GenerateCode(data TemplateData) (string, error) {
 	// Generate response struct if applicable
 	if strings.Contains(data.Response.Content.MimeType, "application/json") && data.Response.Content.Text != "" {
 		structName := data.FunctionName + "Response"
-		structDef, err := GenerateStruct(data.Response.Content.Text, structName)
+		structDef, requiredImports, err := GenerateStruct(data.Response.Content.Text, structName)
 		if err == nil {
 			finalData.ResponseStructName = structName
 			finalData.ResponseStructDef = structDef
+			for _, imp := range requiredImports {
+				imports[imp] = struct{}{}
+			}
 		} else {
 			fmt.Printf("Could not generate response struct for %s: %v\n", data.FunctionName, err)
 		}
 	}
+
+	// Convert map to slice for the template
+	importsList := make([]string, 0, len(imports))
+	for imp := range imports {
+		importsList = append(importsList, imp)
+	}
+	finalData.Imports = importsList
 
 	// Sanitize all string fields for template injection
 	finalData.Request.PostData.Text = escapeString(data.Request.PostData.Text)
@@ -154,4 +177,5 @@ func GenerateCode(data TemplateData) (string, error) {
 
 	return string(formattedCode), nil
 }
+
 

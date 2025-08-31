@@ -1,10 +1,9 @@
 package requests
 
 import (
-	"encoding/json"
-	"log"
-
-	"resty.dev/v3"
+    {{- range .Imports}}
+    {{.}}
+    {{- end}}
 )
 
 {{if .RequestStructDef -}}
