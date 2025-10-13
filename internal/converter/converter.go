@@ -77,6 +77,7 @@ func GenerateCode(data TemplateData, templatePath string) (string, error) {
 	// Set up a map to collect unique imports
 	imports := map[string]struct{}{
 		`"log"`:          {},
+		`"fmt"`:          {},
 		`"resty.dev/v3"`: {},
 	}
 
@@ -176,5 +177,3 @@ func GenerateCode(data TemplateData, templatePath string) (string, error) {
 
 	return string(formattedCode), nil
 }
-
-

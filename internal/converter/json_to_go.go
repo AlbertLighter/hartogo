@@ -127,7 +127,7 @@ func (g *generator) generateType(data interface{}, nameHint string, indentLevel 
 		if _, err := v.Int64(); err == nil {
 			return "int64", nil
 		}
-		g.imports[`"strconv"`] = struct{}{}
+		// g.imports[`"strconv"`] = struct{}{}
 		return "float64", nil
 	case float64: // This case might be hit if UseNumber() is not used
 		if v == float64(int(v)) {
