@@ -16,66 +16,79 @@ import (
 {{.ResponseStructDef}}
 {{- end}}
 
+{{- if .RequestStructName}}
+const {{.ResponseStructName}}Const = "{{.PostData.Text}}"
+{{- end}}
+
 // {{.FunctionName}} executes the request based on the HAR entry.
-func {{.FunctionName}}() (*resty.Response, error) {
+func {{.FunctionName}}() (*{{.ResponseStructName}}, error) {
+	{{- if .RequestStructName}}
+	var requestBody {{.RequestStructName}}
+	// Note: The PostData.Text is the escaped version of the JSON.
+	if err := json.Unmarshal([]byte({{.ResponseStructName}}Const), &requestBody); err != nil {
+		log.Printf("Error unmarshalling request body for {{.FunctionName}}: %v", err)
+		return nil, err
+	}
+	{{- end}}
+
 	// Create a Resty Client
 	client := resty.New()
 
 	// Create a request
-	req := client.R()
+	resp, err := client.R().
 
 	{{- if .ResponseStructName}}
 	// Automatically unmarshal the response into the corresponding struct
-	req.SetResult(&{{.ResponseStructName}}{})
+	SetResult(&{{.ResponseStructName}}{}).
 	{{- end}}
 
 	{{- if .Headers}}
-	req.SetHeaders(map[string]string{
+	SetHeaders(map[string]string{
 		{{- range .Headers}}
 		"{{.Name}}": "{{.Value}}",
 		{{- end}}
-	})
+	}).
 	{{- end}}
 
 	{{- if .QueryString}}
-	req.SetQueryParams(map[string]string{
+	SetQueryParams(map[string]string{
 		{{- range .QueryString}}
 		"{{.Name}}": "{{.Value}}",
 		{{- end}}
-	})
+	}).
 	{{- end}}
 
 	{{- if .RequestStructName}}
-	var requestBody {{.RequestStructName}}
-	// Note: The PostData.Text is the escaped version of the JSON.
-	if err := json.Unmarshal([]byte("{{.PostData.Text}}"), &requestBody); err != nil {
-		log.Printf("Error unmarshalling request body for {{.FunctionName}}: %v", err)
-		return nil, err
-	}
-	req.SetBody(requestBody)
+	SetBody(requestBody).
 	{{- else if .PostData.Text}}
-	req.SetBody("{{.PostData.Text}}")
+	SetBody("{{.PostData.Text}}").
 	{{- else if .PostData.Params}}
-	req.SetFormData(map[string]string{
+	SetFormData(map[string]string{
 		{{- range .PostData.Params}}
 		"{{.Name}}": "{{.Value}}",
 		{{- end}}
-	})
+	}).
 	{{- end}}
 
-	resp, err := req.Execute("{{.Method}}", "{{.URL}}")
-
+	Execute("{{.Method}}", "{{.URL}}")
 	if err != nil {
 		log.Printf("Error executing request for {{.FunctionName}}: %v", err)
 		return nil, err
 	}
 
 	{{- if .ResponseStructName}}
-	if resp.IsSuccess() {
-		result := resp.Result().(*{{.ResponseStructName}})
-		log.Printf("Unmarshalled response: %+v", result)
+		if err != nil {
+		log.Printf("Error executing request for {{.FunctionName}}: %v", err)
+		return nil, err
 	}
-	{{- end}}
+	if resp.IsError() {
+		return nil, fmt.Errorf("AuthV5 failed with status code: %d", resp.StatusCode())
+	}
+	result := resp.Result().(*{{.ResponseStructName}})
+	if result.StatusCode != 0 {
+		return nil, fmt.Errorf("AuthV5 failed with status code: %d", result.StatusCode)
+	}
 
-	return resp, nil
+	return result, nil
+	{{- end}}
 }
