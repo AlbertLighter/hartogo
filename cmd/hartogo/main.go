@@ -37,6 +37,15 @@ func main() {
 		log.Fatalf("Failed to create output directory: %v", err)
 	}
 
+	// Handle the template file
+	templatePath := filepath.Join(finalOutputDir, "resty.tmpl")
+	if _, err := os.Stat(templatePath); os.IsNotExist(err) {
+		log.Printf("Template not found in %s, creating default template.", finalOutputDir)
+		if err := os.WriteFile(templatePath, []byte(converter.RestyTemplate), 0644); err != nil {
+			log.Fatalf("Failed to write default template: %v", err)
+		}
+	}
+
 	// Check if the input file is a JSON file
 	if strings.HasSuffix(strings.ToLower(*inputFile), ".json") {
 		// Handle JSON file directly
@@ -119,7 +128,7 @@ func main() {
 		}
 
 		// Generate the Go code
-		generatedCode, err := converter.GenerateCode(data)
+		generatedCode, err := converter.GenerateCode(data, templatePath)
 		if err != nil {
 			log.Printf("Skipping entry %d: Could not generate code: %v", i, err)
 			continue

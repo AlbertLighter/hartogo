@@ -15,7 +15,7 @@ import (
 )
 
 //go:embed templates/resty.tmpl
-var restyTemplate string
+var RestyTemplate string
 
 // TemplateData holds all the necessary data for generating a single request function.
 type TemplateData struct {
@@ -64,8 +64,7 @@ func ReadHARFromFile(filePath string) (*HAR, error) {
 }
 
 // GenerateCode generates Go code from a TemplateData object.
-// GenerateCode generates Go code from a TemplateData object.
-func GenerateCode(data TemplateData) (string, error) {
+func GenerateCode(data TemplateData, templatePath string) (string, error) {
 	parsedURL, err := url.Parse(data.Request.URL)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse request URL: %w", err)
@@ -77,8 +76,8 @@ func GenerateCode(data TemplateData) (string, error) {
 
 	// Set up a map to collect unique imports
 	imports := map[string]struct{}{
-		`"log"`:          {}, 
-		`"resty.dev/v3"`: {}, 
+		`"log"`:          {},
+		`"resty.dev/v3"`: {},
 	}
 
 	// Generate request struct if applicable
@@ -156,9 +155,9 @@ func GenerateCode(data TemplateData) (string, error) {
 		finalData.Request.PostData.Params[i] = Param{Name: escapeString(p.Name), Value: escapeString(p.Value)}
 	}
 
-	tmpl, err := template.New("resty").Parse(restyTemplate)
+	tmpl, err := template.ParseFiles(templatePath)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse template: %w", err)
+		return "", fmt.Errorf("failed to parse template from %s: %w", templatePath, err)
 	}
 
 	var buf bytes.Buffer
