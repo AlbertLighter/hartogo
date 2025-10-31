@@ -37,13 +37,16 @@ func main() {
 		log.Fatalf("Failed to create output directory: %v", err)
 	}
 
-	// Handle the template file
-	templatePath := filepath.Join(finalOutputDir, "resty.tmpl")
+	// Determine the template path.
+	// Priority: 1. `resty.tmpl` in the input file's directory. 2. Embedded template.
+	inputDir := filepath.Dir(*inputFile)
+	templatePath := filepath.Join(inputDir, "resty.tmpl")
 	if _, err := os.Stat(templatePath); os.IsNotExist(err) {
-		log.Printf("Template not found in %s, creating default template.", finalOutputDir)
-		if err := os.WriteFile(templatePath, []byte(converter.RestyTemplate), 0644); err != nil {
-			log.Fatalf("Failed to write default template: %v", err)
-		}
+		// Custom template not found, fall back to the embedded one.
+		log.Printf("Custom template not found in %s, using embedded template.", inputDir)
+		templatePath = ""
+	} else {
+		log.Printf("Using custom template from %s", templatePath)
 	}
 
 	// Check if the input file is a JSON file

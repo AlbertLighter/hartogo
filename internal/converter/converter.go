@@ -156,9 +156,20 @@ func GenerateCode(data TemplateData, templatePath string) (string, error) {
 		finalData.Request.PostData.Params[i] = Param{Name: escapeString(p.Name), Value: escapeString(p.Value)}
 	}
 
-	tmpl, err := template.ParseFiles(templatePath)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse template from %s: %w", templatePath, err)
+	var tmpl *template.Template
+
+	if templatePath != "" {
+		// A custom template is provided, parse it from the file.
+		tmpl, err = template.ParseFiles(templatePath)
+		if err != nil {
+			return "", fmt.Errorf("failed to parse custom template from %s: %w", templatePath, err)
+		}
+	} else {
+		// No custom template, use the embedded one.
+		tmpl, err = template.New("resty").Parse(RestyTemplate)
+		if err != nil {
+			return "", fmt.Errorf("failed to parse embedded template: %w", err)
+		}
 	}
 
 	var buf bytes.Buffer
